@@ -11,6 +11,7 @@
 // @include     *://www.wanikani.com/review/session*
 // @include     *://www.wanikani.com/extra_study/session*
 // @grant        none
+// @license      MIT
 // @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js
 // ==/UserScript==
 
