@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.9
+// @version      0.10
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match       *://www.wanikani.com/radicals/*
@@ -63,7 +63,7 @@ const pageType = window.location.pathname.includes('lesson') ? 'lesson' : (windo
 const getItemDiff = (char, dict) => Object.values(dict).findIndex(s => s.includes(char)); // get item difficulty from dict
 const diffToColor = diff => settings.DIFF_COLORS[Object.keys(settings.DIFF_COLORS).sort((a, b) => parseInt(b) - parseInt(a)).find(n => diff >= parseInt(n)) || null];
 const diffToStr = (diff, decimals = 1, includeTotal = true) => Math.max(diff/10, 0).toFixed(decimals) + (includeTotal ? '/10' : '');
-const innerDiffDiv = (color, value) => `<div style="width: 24px; height: 24px; border-radius: 12px; margin: 13px; position: absolute; box-shadow: 0 0 6px 6px ${color}; opacity: 0.7${settings.GLOWING_INDICATOR && color != settings.DIFF_COLORS.null ? '' : '; display: none'}"></div><div style="width: 26px; height: 26px; background: ${color}; border-radius: 13px; margin: 12px; position: absolute"></div><div style="width: 30px; height: 18px; margin-left: 10px; margin-right: 10px; margin-top: 15px; position: absolute; text-align: center; vertical-align: middle; font-weight: bold; text-shadow: none; line-height: 1.3; font-size: 16px; color: ${color}; filter: brightness(${(settings.VALUE_OPACITY * 100).toFixed(0)}%)">${value}</div><div style="width: 50px; height: 50px; background: #5f5f5f; border-radius: 10px; box-shadow: 4px 4px 3px 1px rgba(0,0,0,0.3)${settings.BOX_INDICATOR ? '' : '; display: none'}"></div>`;
+const innerDiffDiv = (color, value) => `<div style="width: 24px; height: 24px; border-radius: 12px; margin: 13px; position: absolute; box-shadow: 0 0 6px 6px ${color}; opacity: 0.7${settings.GLOWING_INDICATOR && color != settings.DIFF_COLORS.null ? '' : '; display: none'}"></div><div style="width: 26px; height: 26px; background: ${color} !important; border-radius: 13px; margin: 12px; position: absolute"></div><div style="width: 30px; height: 18px; margin-left: 10px; margin-right: 10px; margin-top: 15px; position: absolute; text-align: center; vertical-align: middle; font-weight: bold; text-shadow: none; line-height: 1.3; font-size: 16px; color: ${color} !important; filter: brightness(${(settings.VALUE_OPACITY * 100).toFixed(0)}%) !important">${value}</div><div style="width: 50px; height: 50px; background: #5f5f5f !important; border-radius: 10px; box-shadow: 4px 4px 3px 1px rgba(0,0,0,0.3)${settings.BOX_INDICATOR ? '' : '; display: none'}"></div>`;
 const diffDiv = (color, hovertext, absolute, value) => `<div id="${mainDivId}" title="${hovertext}" style="width: 50px; height: 50px; zoom: ${settings.INDICATOR_SIZE}; position: ${absolute ? 'absolute; bottom: 10px; right: 10px' : 'relative'}">${innerDiffDiv(color, value)}</div>`;
 const diffIndicatorValue = diff => diff != -1 ? diffToStr(diff, (settings.SHOW_DECIMALS && diff != 100 ? 1 : 0), false) : '';
 const charToColorDiff = (type, char) => { // get color based on difficulty of char
