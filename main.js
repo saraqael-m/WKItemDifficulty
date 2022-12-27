@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.8
+// @version      0.9
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match       *://www.wanikani.com/radicals/*
@@ -18,11 +18,12 @@
 //// SETTINGS ////
 
 const USE_WKOF_SETTINGS = true; // if the settings from the wkof menu should be used when it is available
+const OFFSET_SRS_POPUP = false; // if the srs level-up popup should be made smaller for the hover text of the indicator to still be usable
 
 // changing these settings also changes their default values which the wkof settings menu uses
 const defaultSettings = {
     INDICATOR_SIZE: 1, // percentage for size of difficulty indicator; default (1) corresponds to 50 pixels
-    VALUE_OPACITY: 0.85, // opacity of the value inside the difficulty indicator (1 is not visible, 0 is black)
+    VALUE_OPACITY: 0.83, // opacity of the value inside the difficulty indicator (1 is not visible, 0 is black)
     GLOWING_INDICATOR: true, // glow appears around the indicator to simulate a "traffic light" feel
     BOX_INDICATOR: true, // have the gray box be around the indicator to make it stand out
     SHOW_DECIMALS: false, // show tenths place for the number inside the indicator
@@ -238,9 +239,11 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
     } else { // extra study, lesson, or review page
 
         // change level up div width so that hover text is visible
-        const cssScript = document.createElement('style');
-        cssScript.innerHTML = '.srs {width: 50%; margin-left: 25%;}';
-        document.head.appendChild(cssScript);
+        if (OFFSET_SRS_POPUP) {
+            const cssScript = document.createElement('style');
+            cssScript.innerHTML = '.srs {width: 50%; margin-left: 25%;}';
+            document.head.appendChild(cssScript);
+        }
 
         // initialize element
         const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
