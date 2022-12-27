@@ -58,28 +58,68 @@ const wkof = window.wkof; // WaniKani Open Framework
 // find out if page is lesson, review, or word info
 const pageType = window.location.pathname.includes('lesson') ? 'lesson' : (window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : 'info'));
 
-// handle settings if wkof is installed and should be used
-if (wkof && USE_WKOF_SETTINGS) {
-    var updateDiffInfo = () => {};
-    const loadSettings = async () => {
-        await wkof.Settings.save(wkofScriptId);
-        const newSettings = await wkof.Settings.load(wkofScriptId);
-        const correctSettings = Object.keys(settings).every(key => newSettings && newSettings.hasOwnProperty(key));
-        if (!correctSettings && newSettings) {
-            wkof.settings[wkofScriptId] = undefined;
-            return false;
+// basic functions
+const getItemDiff = (char, dict) => Object.values(dict).findIndex(s => s.includes(char)); // get item difficulty from dict
+const diffToColor = diff => settings.DIFF_COLORS[Object.keys(settings.DIFF_COLORS).sort((a, b) => parseInt(b) - parseInt(a)).find(n => diff >= parseInt(n)) || null];
+const diffToStr = (diff, decimals = 1, includeTotal = true) => Math.max(diff/10, 0).toFixed(decimals) + (includeTotal ? '/10' : '');
+const innerDiffDiv = (color, value) => `<div style="width: 24px; height: 24px; border-radius: 12px; margin: 13px; position: absolute; box-shadow: 0 0 6px 6px ${color}; opacity: 0.7${settings.GLOWING_INDICATOR && color != settings.DIFF_COLORS.null ? '' : '; display: none'}"></div><div style="width: 26px; height: 26px; background: ${color}; border-radius: 13px; margin: 12px; position: absolute"></div><div style="width: 30px; height: 18px; margin-left: 10px; margin-right: 10px; margin-top: 15px; position: absolute; text-align: center; vertical-align: middle; font-weight: bold; text-shadow: none; line-height: 1.3; font-size: 16px; color: ${color}; filter: brightness(${(settings.VALUE_OPACITY * 100).toFixed(0)}%)">${value}</div><div style="width: 50px; height: 50px; background: #5f5f5f; border-radius: 10px; box-shadow: 4px 4px 3px 1px rgba(0,0,0,0.3)${settings.BOX_INDICATOR ? '' : '; display: none'}"></div>`;
+const diffDiv = (color, hovertext, absolute, value) => `<div id="${mainDivId}" title="${hovertext}" style="width: 50px; height: 50px; zoom: ${settings.INDICATOR_SIZE}; position: ${absolute ? 'absolute; bottom: 10px; right: 10px' : 'relative'}">${innerDiffDiv(color, value)}</div>`;
+const diffIndicatorValue = diff => diff != -1 ? diffToStr(diff, (settings.SHOW_DECIMALS && diff != 100 ? 1 : 0), false) : '';
+const charToColorDiff = (type, char) => { // get color based on difficulty of char
+    const diff = type == 'kanji' ? getItemDiff(char, kanjiDiff) : (type == 'vocabulary' ? getItemDiff(char, vocabDiff) : -1);
+    const color = diffToColor(diff);
+    return [diff, color];
+}
+const innerDivByChar = (type, char) => { // get inner indicator div through char
+    const [diff, color] = charToColorDiff(type, char);
+    return [innerDiffDiv(color, diffIndicatorValue(diff)), (diff != -1 ? diffToStr(diff) : 'n/a')];
+}
+const divByChar = (type, char, absolute) => { // get indicator div through char
+    const [diff, color] = charToColorDiff(type, char);
+    return diffDiv(color, diff != -1 ? diffToStr(diff) : 'n/a', absolute, diffIndicatorValue(diff));
+}
+const strToElement = str => { // turn HTML string into element
+    var temp = document.createElement('div');
+    temp.innerHTML = str;
+    return temp.firstChild;
+}
+const awaitElement = (id) => new Promise(resolve => { // "await existence of element"-function
+    if (document.getElementById(id)) return resolve(document.getElementById(id));
+    const observer = new MutationObserver(() => { // observer for existence
+        if (document.getElementById(id)) {
+            resolve(document.getElementById(id));
+            observer.disconnect();
         }
-        settings = newSettings || settings;
-        updateDiffInfo();
-        return newSettings;
-    }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+});
 
-    const settingsHandler = async () => {
-        if (!(await loadSettings())) { // if no settings exist, save new ones from file
-            wkof.settings[wkofScriptId] = {...settings};
-            loadSettings();
+// main function
+(async () => {
+
+    // handle settings if wkof is installed and should be used
+    if (wkof && USE_WKOF_SETTINGS) {
+        var updateDiffInfo = () => {};
+        const loadSettings = async () => {
+            await wkof.Settings.save(wkofScriptId);
+            const newSettings = await wkof.Settings.load(wkofScriptId);
+            const correctSettings = Object.keys(settings).every(key => newSettings && newSettings.hasOwnProperty(key));
+            if (!correctSettings && newSettings) {
+                wkof.settings[wkofScriptId] = undefined;
+                return false;
+            }
+            settings = newSettings || settings;
+            updateDiffInfo();
+            return newSettings;
         }
-        if (pageType != 'info') {
+
+        const settingsHandler = async () => {
+            if (!(await loadSettings())) { // if no settings exist, save new ones from file
+                wkof.settings[wkofScriptId] = {...settings};
+                loadSettings();
+            }
+            if (pageType == 'info') return; 
+            
             var dialog;
             const resetBtnClick = (btnName, btnConfig, onChange) => { // restore default with reset btn
                 var settingNames;
@@ -186,52 +226,13 @@ if (wkof && USE_WKOF_SETTINGS) {
                     dialog.open();
                 },
             });
-        }
+        };
+
+        wkof.include('Menu,Settings');
+        await wkof.ready('Menu,Settings').then(settingsHandler);
     }
-    
-    wkof.include('Menu,Settings');
-    await wkof.ready('Menu,Settings').then(settingsHandler);
-}
 
-// basic functions
-const getItemDiff = (char, dict) => Object.values(dict).findIndex(s => s.includes(char)); // get item difficulty from dict
-const diffToColor = diff => settings.DIFF_COLORS[Object.keys(settings.DIFF_COLORS).sort((a, b) => parseInt(b) - parseInt(a)).find(n => diff >= parseInt(n)) || null];
-const diffToStr = (diff, decimals = 1, includeTotal = true) => Math.max(diff/10, 0).toFixed(decimals) + (includeTotal ? '/10' : '');
-const innerDiffDiv = (color, value) => `<div style="width: 24px; height: 24px; border-radius: 12px; margin: 13px; position: absolute; box-shadow: 0 0 6px 6px ${color}; opacity: 0.7${settings.GLOWING_INDICATOR && color != settings.DIFF_COLORS.null ? '' : '; display: none'}"></div><div style="width: 26px; height: 26px; background: ${color}; border-radius: 13px; margin: 12px; position: absolute"></div><div style="width: 30px; height: 18px; margin-left: 10px; margin-right: 10px; margin-top: 15px; position: absolute; text-align: center; vertical-align: middle; font-weight: bold; text-shadow: none; line-height: 1.3; font-size: 16px; color: ${color}; filter: brightness(${(settings.VALUE_OPACITY * 100).toFixed(0)}%)">${value}</div><div style="width: 50px; height: 50px; background: #5f5f5f; border-radius: 10px; box-shadow: 4px 4px 3px 1px rgba(0,0,0,0.3)${settings.BOX_INDICATOR ? '' : '; display: none'}"></div>`;
-const diffDiv = (color, hovertext, absolute, value) => `<div id="${mainDivId}" title="${hovertext}" style="width: 50px; height: 50px; zoom: ${settings.INDICATOR_SIZE}; position: ${absolute ? 'absolute; bottom: 10px; right: 10px' : 'relative'}">${innerDiffDiv(color, value)}</div>`;
-const diffIndicatorValue = diff => diff != -1 ? diffToStr(diff, (settings.SHOW_DECIMALS && diff != 100 ? 1 : 0), false) : '';
-const charToColorDiff = (type, char) => { // get color based on difficulty of char
-    const diff = type == 'kanji' ? getItemDiff(char, kanjiDiff) : (type == 'vocabulary' ? getItemDiff(char, vocabDiff) : -1);
-    const color = diffToColor(diff);
-    return [diff, color];
-}
-const innerDivByChar = (type, char) => { // get inner indicator div through char
-    const [diff, color] = charToColorDiff(type, char);
-    return [innerDiffDiv(color, diffIndicatorValue(diff)), (diff != -1 ? diffToStr(diff) : 'n/a')];
-}
-const divByChar = (type, char, absolute) => { // get indicator div through char
-    const [diff, color] = charToColorDiff(type, char);
-    return diffDiv(color, diff != -1 ? diffToStr(diff) : 'n/a', absolute, diffIndicatorValue(diff));
-}
-const strToElement = str => { // turn HTML string into element
-    var temp = document.createElement('div');
-    temp.innerHTML = str;
-    return temp.firstChild;
-}
-const awaitElement = (id) => new Promise(resolve => { // "await existence of element"-function
-    if (document.getElementById(id)) return resolve(document.getElementById(id));
-    const observer = new MutationObserver(() => { // observer for existence
-        if (document.getElementById(id)) {
-            resolve(document.getElementById(id));
-            observer.disconnect();
-        }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-});
-
-// main function
-(async () => {
-
+    // initialize difficulty indicator
     if (pageType == 'info') { // kanji/vocab/radical info page
         wkItemInfo.append('Difficulty', ({type, characters}) => strToElement(divByChar(type, characters, false)));
     } else { // extra study, lesson, or review page
