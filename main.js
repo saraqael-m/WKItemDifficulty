@@ -364,7 +364,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         // setup observer to change info box contents for subsequent items
         var observer = new MutationObserver(() => updateDiffInfo());
         var config = { characterData: true, childList: true, subtree: true };
-        observer.observe(answerElement, config);
+        observer.observe(pageType != 'lesson' ? answerElement : characterElement.children[0], config);
     }
 
 })();
