@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.11
+// @version      0.12
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match       *://www.wanikani.com/radicals/*
@@ -22,13 +22,14 @@ const OFFSET_SRS_POPUP = false; // if the srs level-up popup should be made smal
 
 // changing these settings also changes their default values which the wkof settings menu uses
 const defaultSettings = {
-    INDICATOR_SIZE: 1, // percentage for size of difficulty indicator; default (1) corresponds to 50 pixels
-    VALUE_OPACITY: 0.83, // opacity of the value inside the difficulty indicator (1 is not visible, 0 is black)
+    INDICATOR_REVIEW_POS: 'info', // where the indicator is placed while doing reviews; options are 'none', 'info', and 'main'
+    HIDE_UNTIL_ANSWER: false, // hide the difficulty rating until an answer is given for the item
+    SHOW_ON_INFO_PAGE: true, // show the indicator on the info page of the respective item
     GLOWING_INDICATOR: true, // glow appears around the indicator to simulate a "traffic light" feel
     BOX_INDICATOR: true, // have the gray box be around the indicator to make it stand out
     SHOW_DECIMALS: false, // show tenths place for the number inside the indicator
-    INDICATOR_REVIEW_POS: 'info', // where the indicator is placed while doing reviews; options are 'none', 'info', and 'main'
-    SHOW_ON_INFO_PAGE: true, // show the indicator on the info page of the respective item
+    INDICATOR_SIZE: 1, // percentage for size of difficulty indicator; default (1) corresponds to 50 pixels
+    VALUE_OPACITY: 0.83, // opacity of the value inside the difficulty indicator (1 is not visible, 0 is black)
     DIFF_COLORS: { // color codes for different difficulty levels
         null: '#7a7a7a', // used when no difficulty info is present (default: gray #7a7a7a)
         00:   '#3cc92e', // 0.0 -  0.9: easy (default: green #3cc92e)
@@ -126,7 +127,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                     case 'reset_color_button': settingNames = ['DIFF_COLORS']; break;
                     case 'reset_size_button': settingNames = ['INDICATOR_SIZE', 'VALUE_OPACITY']; break;
                     case 'reset_appearance_button': settingNames = ['GLOWING_INDICATOR', 'BOX_INDICATOR', 'SHOW_DECIMALS']; break;
-                    case 'reset_visibility_button': settingNames = ['SHOW_ON_INFO_PAGE', 'INDICATOR_REVIEW_POS']; break;
+                    case 'reset_visibility_button': settingNames = ['SHOW_ON_INFO_PAGE', 'INDICATOR_REVIEW_POS', 'HIDE_UNTIL_ANSWER']; break;
                 }
                 if (settingNames) for (const settingName of settingNames) wkof.settings[wkofScriptId][settingName] = defaultSettings[settingName];
                 dialog.refresh(); // make changes visible
@@ -156,6 +157,13 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                                     info: 'In Item Info',
                                     none: 'Nowhere',
                                 }
+                            },
+                            HIDE_UNTIL_ANSWER: {
+                                type: 'checkbox',
+                                label: 'Hide Difficulty until Answered',
+                                default: defaultSettings.HIDE_UNTIL_ANSWER,
+                                hover_tip: 'hide the difficulty rating until an answer is given for the item',
+                                validate: (value, config) => wkof.settings[wkofScriptId].INDICATOR_REVIEW_POS == 'main' ? true : 'Can only be changed when indicator is beside the character.',
                             },
                             SHOW_ON_INFO_PAGE: {
                                 type: 'checkbox',
@@ -286,6 +294,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
 
         // initialize elements
         const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
+        const answerElement = await awaitElement('answer-form').then(e => e.getElementsByTagName('fieldset')[0]);
         let mainDiv;
         const initializeIndicator = () => {
             characterElement.appendChild(strToElement(diffDiv('gray', 'Inactive', true, '')));
@@ -298,7 +307,6 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         // update diff sign
         updateDiffInfo = async function () {
             if (pageType != 'lesson') {
-                console.log(prevPos, settings.INDICATOR_REVIEW_POS)
                 if (settings.INDICATOR_REVIEW_POS == 'none') {
                     prevPos = settings.INDICATOR_REVIEW_POS;
                     if (itemInfoSection) itemInfoSection.remove();
@@ -327,7 +335,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
             // get item info and new indicator
             const itemType = characterElement.className.toLowerCase();
             const itemName = characterElement.children[0].innerHTML;
-            const [innerDivHTML, hovertext] = innerDivByChar(itemType, itemName);
+            const [innerDivHTML, hovertext] = settings.HIDE_UNTIL_ANSWER && !answerElement.className && settings.INDICATOR_REVIEW_POS == 'main' && pageType != 'lesson' ? innerDivByChar('', '') : innerDivByChar(itemType, itemName);
 
             // renew attributes
             mainDiv.innerHTML = innerDivHTML;
@@ -341,7 +349,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         // setup observer to change info box contents for subsequent items
         var observer = new MutationObserver(() => updateDiffInfo());
         var config = { characterData: true, childList: true, subtree: true };
-        observer.observe(characterElement.children[0], config);
+        observer.observe(answerElement, config);
     }
 
 })();
