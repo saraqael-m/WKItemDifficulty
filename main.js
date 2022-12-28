@@ -365,6 +365,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         var observer = new MutationObserver(() => updateDiffInfo());
         var config = { characterData: true, childList: true, subtree: true };
         observer.observe(answerElement, config);
+        observer.observe(characterElement, config);
     }
 
 })();
