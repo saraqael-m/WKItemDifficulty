@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.10
+// @version      0.11
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match       *://www.wanikani.com/radicals/*
@@ -27,6 +27,8 @@ const defaultSettings = {
     GLOWING_INDICATOR: true, // glow appears around the indicator to simulate a "traffic light" feel
     BOX_INDICATOR: true, // have the gray box be around the indicator to make it stand out
     SHOW_DECIMALS: false, // show tenths place for the number inside the indicator
+    INDICATOR_REVIEW_POS: 'info', // where the indicator is placed while doing reviews; options are 'none', 'info', and 'main'
+    SHOW_ON_INFO_PAGE: true, // show the indicator on the info page of the respective item
     DIFF_COLORS: { // color codes for different difficulty levels
         null: '#7a7a7a', // used when no difficulty info is present (default: gray #7a7a7a)
         00:   '#3cc92e', // 0.0 -  0.9: easy (default: green #3cc92e)
@@ -104,11 +106,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         const loadSettings = async () => {
             await wkof.Settings.save(wkofScriptId);
             const newSettings = await wkof.Settings.load(wkofScriptId);
-            const correctSettings = Object.keys(settings).every(key => newSettings && newSettings.hasOwnProperty(key));
-            if (!correctSettings && newSettings) {
-                wkof.settings[wkofScriptId] = undefined;
-                return false;
-            }
+            if (newSettings) for (const key in defaultSettings) if (!newSettings.hasOwnProperty(key)) newSettings[key] = defaultSettings[key];
             settings = newSettings || settings;
             updateDiffInfo();
             return newSettings;
@@ -119,15 +117,16 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                 wkof.settings[wkofScriptId] = {...settings};
                 loadSettings();
             }
-            if (pageType == 'info') return; 
-            
-            var dialog;
+            if (pageType == 'info') return;
+
+            var dialog, prevSettings;
             const resetBtnClick = (btnName, btnConfig, onChange) => { // restore default with reset btn
                 var settingNames;
                 switch(btnName) { // get settings by button name
                     case 'reset_color_button': settingNames = ['DIFF_COLORS']; break;
                     case 'reset_size_button': settingNames = ['INDICATOR_SIZE', 'VALUE_OPACITY']; break;
                     case 'reset_appearance_button': settingNames = ['GLOWING_INDICATOR', 'BOX_INDICATOR', 'SHOW_DECIMALS']; break;
+                    case 'reset_visibility_button': settingNames = ['SHOW_ON_INFO_PAGE', 'INDICATOR_REVIEW_POS']; break;
                 }
                 if (settingNames) for (const settingName of settingNames) wkof.settings[wkofScriptId][settingName] = defaultSettings[settingName];
                 dialog.refresh(); // make changes visible
@@ -138,7 +137,41 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                 title: wkofScriptTitle,
                 on_save: loadSettings, // save settings and update values
                 on_change: loadSettings, // show changes immediately
+                on_cancel: () => {
+                    wkof.settings[wkofScriptId] = prevSettings;
+                    loadSettings();
+                },
                 content: {
+                    visibility_settings: { // visibility settings
+                        type: 'group',
+                        label: 'Visibility Settings',
+                        content: {
+                            INDICATOR_REVIEW_POS: {
+                                type: 'dropdown',
+                                label: 'Indicator Position for Reviews',
+                                default: defaultSettings.INDICATOR_REVIEW_POS,
+                                hover_tip: 'where the indicator is placed while doing reviews',
+                                content: {
+                                    main: 'Beside the Character',
+                                    info: 'In Item Info',
+                                    none: 'Nowhere',
+                                }
+                            },
+                            SHOW_ON_INFO_PAGE: {
+                                type: 'checkbox',
+                                label: 'Show Indicator on Info Page',
+                                default: defaultSettings.SHOW_ON_INFO_PAGE,
+                                hover_tip: 'show the indicator on the info page of the respective item',
+                            },
+                            reset_visibility_button: {
+                                type: 'button',
+                                label: '',
+                                text: 'Reset to Default Visibility',
+                                full_width: true,
+                                on_click: resetBtnClick,
+                            },
+                        },
+                    },
                     appearance_settings: { // appearance settings
                         type: 'group',
                         label: 'Appearance Settings',
@@ -224,6 +257,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                 submenu: 'Settings',
                 title: wkofScriptTitle,
                 on_click: () => { // open dialog box on click
+                    prevSettings = {...settings};
                     dialog.open();
                 },
             });
@@ -233,25 +267,63 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         await wkof.ready('Menu,Settings').then(settingsHandler);
     }
 
+    const appendToInfo = () => wkItemInfo.under('composition').append('Difficulty', ({type, characters}) => strToElement(divByChar(type, characters, false)));
+
     // initialize difficulty indicator
     if (pageType == 'info') { // kanji/vocab/radical info page
-        wkItemInfo.append('Difficulty', ({type, characters}) => strToElement(divByChar(type, characters, false)));
+        if (!settings.SHOW_ON_INFO_PAGE) appendToInfo();
     } else { // extra study, lesson, or review page
 
+        var itemInfoSection;
+        if (settings.INDICATOR_REVIEW_POS == 'info' && pageType != 'lesson') itemInfoSection = appendToInfo();
+
         // change level up div width so that hover text is visible
-        if (OFFSET_SRS_POPUP) {
+        if (OFFSET_SRS_POPUP && settings.INDICATOR_REVIEW_POS == 'main' && pageType == 'review') {
             const cssScript = document.createElement('style');
             cssScript.innerHTML = '.srs {width: 50%; margin-left: 25%;}';
             document.head.appendChild(cssScript);
         }
 
-        // initialize element
+        // initialize elements
         const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
-        characterElement.appendChild(strToElement(diffDiv('gray', 'Inactive', true, '')));
-        const mainDiv = document.getElementById(mainDivId);
+        let mainDiv;
+        const initializeIndicator = () => {
+            characterElement.appendChild(strToElement(diffDiv('gray', 'Inactive', true, '')));
+            mainDiv = document.getElementById(mainDivId);
+        }
+        if (settings.INDICATOR_REVIEW_POS == 'main' || pageType == 'lesson') initializeIndicator();
+
+        let prevPos = settings.INDICATOR_REVIEW_POS;
 
         // update diff sign
         updateDiffInfo = async function () {
+            if (pageType != 'lesson') {
+                console.log(prevPos, settings.INDICATOR_REVIEW_POS)
+                if (settings.INDICATOR_REVIEW_POS == 'none') {
+                    prevPos = settings.INDICATOR_REVIEW_POS;
+                    if (itemInfoSection) itemInfoSection.remove();
+                    itemInfoSection = undefined;
+                    mainDiv = document.getElementById(mainDivId);
+                    if (mainDiv) mainDiv.remove();
+                    mainDiv = undefined;
+                    return;
+                }
+                if (prevPos != settings.INDICATOR_REVIEW_POS) {
+                    prevPos = settings.INDICATOR_REVIEW_POS;
+                    if (settings.INDICATOR_REVIEW_POS == 'info') {
+                        if (mainDiv) mainDiv.remove();
+                        mainDiv = undefined;
+                        itemInfoSection = appendToInfo();
+                    } else if (settings.INDICATOR_REVIEW_POS == 'main') {
+                        if (itemInfoSection) itemInfoSection.remove();
+                        itemInfoSection = undefined;
+                        initializeIndicator();
+                    }
+                }
+                if (settings.INDICATOR_REVIEW_POS == 'info') mainDiv = await awaitElement(mainDivId);
+                else if (!document.getElementById(mainDivId)) initializeIndicator();
+            }
+
             // get item info and new indicator
             const itemType = characterElement.className.toLowerCase();
             const itemName = characterElement.children[0].innerHTML;
