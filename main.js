@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.12
+// @version      0.13
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match       *://www.wanikani.com/radicals/*
@@ -133,6 +133,15 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                 dialog.refresh(); // make changes visible
                 onChange(); // report to wkof
             }
+            const disableCheckbox = (elementName, switchBool) => {
+                const checkboxElement = document.querySelectorAll(`input[name="${elementName}"]`)[0];
+                if (switchBool) {
+                    wkof.settings[wkofScriptId][elementName] = false;
+                    checkboxElement.disabled = true;
+                } else checkboxElement.disabled = false;
+                loadSettings();
+                dialog.refresh();
+            }
             dialog = new wkof.Settings({ // define dialog
                 script_id: wkofScriptId,
                 title: wkofScriptTitle,
@@ -141,6 +150,9 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                 on_cancel: () => {
                     wkof.settings[wkofScriptId] = prevSettings;
                     loadSettings();
+                },
+                pre_open: () => {
+                    disableCheckbox('HIDE_UNTIL_ANSWER', settings.INDICATOR_REVIEW_POS != 'main'); // disable if necessary
                 },
                 content: {
                     visibility_settings: { // visibility settings
@@ -156,14 +168,17 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                                     main: 'Beside the Character',
                                     info: 'In Item Info',
                                     none: 'Nowhere',
-                                }
+                                },
+                                on_change: () => {
+                                    disableCheckbox('HIDE_UNTIL_ANSWER', settings.INDICATOR_REVIEW_POS != 'main');
+                                },
                             },
                             HIDE_UNTIL_ANSWER: {
                                 type: 'checkbox',
                                 label: 'Hide Difficulty until Answered',
                                 default: defaultSettings.HIDE_UNTIL_ANSWER,
-                                hover_tip: 'hide the difficulty rating until an answer is given for the item',
-                                validate: (value, config) => wkof.settings[wkofScriptId].INDICATOR_REVIEW_POS == 'main' ? true : 'Can only be changed when indicator is beside the character.',
+                                hover_tip: 'hide the difficulty rating until an answer is given for the item (only changeable if indicator position is beside character)',
+                                validate: (value, config) => wkof.settings[wkofScriptId].INDICATOR_REVIEW_POS == 'main' ? true : 'Can only be changed when indicator is beside the character (you should not be able to see this).',
                             },
                             SHOW_ON_INFO_PAGE: {
                                 type: 'checkbox',
@@ -279,7 +294,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
 
     // initialize difficulty indicator
     if (pageType == 'info') { // kanji/vocab/radical info page
-        if (!settings.SHOW_ON_INFO_PAGE) appendToInfo();
+        if (settings.SHOW_ON_INFO_PAGE) appendToInfo();
     } else { // extra study, lesson, or review page
 
         var itemInfoSection;
