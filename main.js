@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.14
+// @version      0.15
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match       *://www.wanikani.com/radicals/*
@@ -362,8 +362,8 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         updateDiffInfo();
 
         // setup observer to change info box contents for subsequent items
-        var observer = new MutationObserver(() => updateDiffInfo());
-        var config = { characterData: true, childList: true, subtree: true };
+        const observer = new MutationObserver(() => updateDiffInfo());
+        const config = { characterData: true, childList: true, subtree: true, ...(pageType != 'lesson' ? {attributeFilter: ['class']} : {}) };
         observer.observe(pageType != 'lesson' ? answerElement : characterElement.children[0], config);
     }
 
