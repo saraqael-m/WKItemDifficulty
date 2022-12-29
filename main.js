@@ -309,6 +309,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
 
         // initialize elements
         const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
+        if (pageType == 'lesson') characterElement.style.position = 'relative';
         const answerElement = await awaitElement('answer-form').then(e => e.getElementsByTagName('fieldset')[0]);
         let mainDiv;
         const initializeIndicator = () => {
