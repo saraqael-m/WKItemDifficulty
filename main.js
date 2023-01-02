@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.15
+// @version      0.16
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
-// @match       *://www.wanikani.com/radicals/*
-// @match       *://www.wanikani.com/kanji/*
-// @match       *://www.wanikani.com/vocabulary/*
-// @match       *://www.wanikani.com/lesson/session*
-// @match       *://www.wanikani.com/review/session*
-// @match       *://www.wanikani.com/extra_study/session*
+// @match        https://www.wanikani.com/radicals/*
+// @match        https://www.wanikani.com/kanji/*
+// @match        https://www.wanikani.com/vocabulary/*
+// @match        https://www.wanikani.com/lesson/session*
+// @match        https://www.wanikani.com/review/session*
+// @match        https://www.wanikani.com/extra_study/session*
 // @grant        none
 // @license      MIT
 // @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js
@@ -61,6 +61,8 @@ const wkof = window.wkof; // WaniKani Open Framework
 
 // find out if page is lesson, review, or word info
 const pageType = window.location.pathname.includes('lesson') ? 'lesson' : (window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : 'info'));
+// if word info which type of item
+const infoType = pageType != 'info' ? undefined : (window.location.pathname.includes('radical') ? 'rad' : (window.location.pathname.includes('kanji') ? 'kan' : 'voc'));
 
 // basic functions
 const getItemDiff = (char, dict) => Object.values(dict).findIndex(s => s.includes(char)); // get item difficulty from dict
@@ -290,11 +292,11 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         await wkof.ready('Menu,Settings').then(settingsHandler);
     }
 
-    const appendToInfo = () => wkItemInfo.under('composition').append('Difficulty', ({type, characters}) => strToElement(divByChar(type, characters, false)));
+    const appendToInfo = (type) => wkItemInfo.under(type == 'voc' ? 'meaning' : 'composition').append('Difficulty', ({type, characters}) => strToElement(divByChar(type, characters, false)));
 
     // initialize difficulty indicator
     if (pageType == 'info') { // kanji/vocab/radical info page
-        if (settings.SHOW_ON_INFO_PAGE) appendToInfo();
+        if (settings.SHOW_ON_INFO_PAGE) appendToInfo(infoType);
     } else { // extra study, lesson, or review page
 
         var itemInfoSection;
@@ -309,7 +311,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
 
         // initialize elements
         const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
-        if (pageType == 'lesson') characterElement.style.position = 'relative';
+        if (pageType == 'lesson') characterElement.style.position = 'relative'; // firefox places element in bottom right of screen instead of in div
         const answerElement = await awaitElement('answer-form').then(e => e.getElementsByTagName('fieldset')[0]);
         let mainDiv;
         const initializeIndicator = () => {
