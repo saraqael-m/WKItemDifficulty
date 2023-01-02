@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.18
+// @version      0.19
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match        https://www.wanikani.com/radicals*
@@ -12,7 +12,7 @@
 // @match        https://www.wanikani.com/extra_study/session*
 // @grant        none
 // @license      MIT
-// @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js
+// @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js?version=1111117
 // ==/UserScript==
 
 //// SETTINGS ////
