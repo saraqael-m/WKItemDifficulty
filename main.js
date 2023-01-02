@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.16
+// @version      0.17
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match        https://www.wanikani.com/radicals/*
@@ -55,6 +55,7 @@ var settings = {...defaultSettings};
 const mainDivId = 'wk-item-difficulty-main'; // id for main div
 const wkofScriptId = 'wk_item_diff_script'; // script id for wkof settings
 const wkofScriptTitle = 'Item Difficulty Indicator'; // script name for wkof settings
+const itemInfoTitle = 'Difficulty'; // title in info page / review item info
 
 const wkItemInfo = window.wkItemInfo; // WaniKani Item Info Injector
 const wkof = window.wkof; // WaniKani Open Framework
@@ -292,11 +293,13 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         await wkof.ready('Menu,Settings').then(settingsHandler);
     }
 
-    const appendToInfo = (type) => wkItemInfo.under(type == 'voc' ? 'meaning' : 'composition').append('Difficulty', ({type, characters}) => strToElement(divByChar(type, characters, false)));
+    const charToElement = ({type, characters}) => strToElement(divByChar(type, characters, false));
+    const appendToInfo = () => wkItemInfo.under('composition').append(itemInfoTitle, charToElement);
+    const appendToInfoPage = () => wkItemInfo.appendAtTop(itemInfoTitle, charToElement);
 
     // initialize difficulty indicator
     if (pageType == 'info') { // kanji/vocab/radical info page
-        if (settings.SHOW_ON_INFO_PAGE) appendToInfo(infoType);
+        if (settings.SHOW_ON_INFO_PAGE) appendToInfoPage();
     } else { // extra study, lesson, or review page
 
         var itemInfoSection;
