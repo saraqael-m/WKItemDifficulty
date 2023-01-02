@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.17
+// @version      0.18
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
-// @match        https://www.wanikani.com/radicals/*
-// @match        https://www.wanikani.com/kanji/*
-// @match        https://www.wanikani.com/vocabulary/*
+// @match        https://www.wanikani.com/radicals*
+// @match        https://www.wanikani.com/kanji*
+// @match        https://www.wanikani.com/vocabulary*
 // @match        https://www.wanikani.com/lesson/session*
 // @match        https://www.wanikani.com/review/session*
 // @match        https://www.wanikani.com/extra_study/session*
