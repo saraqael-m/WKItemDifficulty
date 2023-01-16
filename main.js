@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.19
+// @version      0.20
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match        https://www.wanikani.com/radicals*
@@ -64,6 +64,8 @@ const wkof = window.wkof; // WaniKani Open Framework
 const pageType = window.location.pathname.includes('lesson') ? 'lesson' : (window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : 'info'));
 // if word info which type of item
 const infoType = pageType != 'info' ? undefined : (window.location.pathname.includes('radical') ? 'rad' : (window.location.pathname.includes('kanji') ? 'kan' : 'voc'));
+// is Firefox browser
+const isFirefox = typeof InstallTrigger !== 'undefined';
 
 // basic functions
 const getItemDiff = (char, dict) => Object.values(dict).findIndex(s => s.includes(char)); // get item difficulty from dict
@@ -314,7 +316,7 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
 
         // initialize elements
         const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
-        if (pageType == 'lesson') characterElement.style.position = 'relative'; // firefox places element in bottom right of screen instead of in div
+        if (pageType == 'lesson' && isFirefox) characterElement.style.position = 'relative'; // firefox places element in bottom right of screen instead of in div
         const answerElement = await awaitElement('answer-form').then(e => e.getElementsByTagName('fieldset')[0]);
         let mainDiv;
         const initializeIndicator = () => {
