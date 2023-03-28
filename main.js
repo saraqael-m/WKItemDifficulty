@@ -1,18 +1,16 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.20
+// @version      0.21
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match        https://www.wanikani.com/radicals*
 // @match        https://www.wanikani.com/kanji*
 // @match        https://www.wanikani.com/vocabulary*
-// @match        https://www.wanikani.com/lesson/session*
-// @match        https://www.wanikani.com/review/session*
-// @match        https://www.wanikani.com/extra_study/session*
+// @match        https://www.wanikani.com/subjects*
 // @grant        none
 // @license      MIT
-// @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js?version=1111117
+// @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js?version=1166918
 // ==/UserScript==
 
 //// SETTINGS ////
@@ -23,7 +21,7 @@ const OFFSET_SRS_POPUP = false; // if the srs level-up popup should be made smal
 // changing these settings also changes their default values which the wkof settings menu uses
 const defaultSettings = {
     INDICATOR_REVIEW_POS: 'info', // where the indicator is placed while doing reviews; options are 'none', 'info', and 'main'
-    HIDE_UNTIL_ANSWER: false, // hide the difficulty rating until an answer is given for the item
+    HIDE_UNTIL_ANSWER: true, // hide the difficulty rating until an answer is given for the item
     SHOW_ON_INFO_PAGE: true, // show the indicator on the info page of the respective item
     GLOWING_INDICATOR: true, // glow appears around the indicator to simulate a "traffic light" feel
     BOX_INDICATOR: true, // have the gray box be around the indicator to make it stand out
@@ -61,7 +59,7 @@ const wkItemInfo = window.wkItemInfo; // WaniKani Item Info Injector
 const wkof = window.wkof; // WaniKani Open Framework
 
 // find out if page is lesson, review, or word info
-const pageType = window.location.pathname.includes('lesson') ? 'lesson' : (window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : 'info'));
+const pageType = window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : (window.location.pathname.includes('subjects') ? 'lesson' : 'info'));
 // if word info which type of item
 const infoType = pageType != 'info' ? undefined : (window.location.pathname.includes('radical') ? 'rad' : (window.location.pathname.includes('kanji') ? 'kan' : 'voc'));
 // is Firefox browser
@@ -72,7 +70,7 @@ const getItemDiff = (char, dict) => Object.values(dict).findIndex(s => s.include
 const diffToColor = diff => settings.DIFF_COLORS[Object.keys(settings.DIFF_COLORS).sort((a, b) => parseInt(b) - parseInt(a)).find(n => diff >= parseInt(n)) || null];
 const diffToStr = (diff, decimals = 1, includeTotal = true) => Math.max(diff/10, 0).toFixed(decimals) + (includeTotal ? '/10' : '');
 const innerDiffDiv = (color, value) => `<div style="width: 24px; height: 24px; border-radius: 12px; margin: 13px; position: absolute; box-shadow: 0 0 6px 6px ${color}; opacity: 0.7${settings.GLOWING_INDICATOR && color != settings.DIFF_COLORS.null ? '' : '; display: none'}"></div><div style="width: 26px; height: 26px; background: ${color} !important; border-radius: 13px; margin: 12px; position: absolute"></div><div style="width: 30px; height: 18px; margin-left: 10px; margin-right: 10px; margin-top: 15px; position: absolute; text-align: center; vertical-align: middle; font-weight: bold; text-shadow: none; line-height: 1.3; font-size: 16px; color: ${color} !important; filter: brightness(${(settings.VALUE_OPACITY * 100).toFixed(0)}%) !important">${value}</div><div style="width: 50px; height: 50px; background: #5f5f5f !important; border-radius: 10px; box-shadow: 4px 4px 3px 1px rgba(0,0,0,0.3)${settings.BOX_INDICATOR ? '' : '; display: none'}"></div>`;
-const diffDiv = (color, hovertext, absolute, value) => `<div id="${mainDivId}" title="${hovertext}" style="width: 50px; height: 50px; zoom: ${settings.INDICATOR_SIZE}; position: ${absolute ? 'absolute; bottom: 10px; right: 10px' : 'relative'}">${innerDiffDiv(color, value)}</div>`;
+const diffDiv = async (color, hovertext, absolute, value, fromtop=false) => `<div id="${mainDivId}" title="${hovertext}" style="width: 50px; height: 50px; zoom: ${settings.INDICATOR_SIZE}; ${fromtop ? 'top: ' + (await awaitElement('character-header', true).then(e => e.offsetHeight) - settings.INDICATOR_SIZE * 50 - 10) + 'px;' : ''} position: ${absolute ? 'absolute; bottom: 10px; right: 10px' : 'relative'}">${innerDiffDiv(color, value)}</div>`;
 const diffIndicatorValue = diff => diff != -1 ? diffToStr(diff, (settings.SHOW_DECIMALS && diff != 100 ? 1 : 0), false) : '';
 const charToColorDiff = (type, char) => { // get color based on difficulty of char
     const diff = type == 'kanji' ? getItemDiff(char, kanjiDiff) : (type == 'vocabulary' ? getItemDiff(char, vocabDiff) : -1);
@@ -92,11 +90,12 @@ const strToElement = str => { // turn HTML string into element
     temp.innerHTML = str;
     return temp.firstChild;
 }
-const awaitElement = (id) => new Promise(resolve => { // "await existence of element"-function
-    if (document.getElementById(id)) return resolve(document.getElementById(id));
+const awaitElement = (id, isClass = false) => new Promise(resolve => { // "await existence of element"-function
+    const getFunc = isClass ? t => document.getElementsByClassName(t)[0] : t => document.getElementById(t);
+    if (getFunc(id)) return resolve(getFunc(id));
     const observer = new MutationObserver(() => { // observer for existence
-        if (document.getElementById(id)) {
-            resolve(document.getElementById(id));
+        if (getFunc(id)) {
+            resolve(getFunc(id));
             observer.disconnect();
         }
     });
@@ -315,15 +314,19 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
         }
 
         // initialize elements
-        const characterElement = await awaitElement(pageType == 'lesson' ? 'main-info' : 'character');
+        let characterElement = await awaitElement('character-header', true);
         if (pageType == 'lesson' && isFirefox) characterElement.style.position = 'relative'; // firefox places element in bottom right of screen instead of in div
-        const answerElement = await awaitElement('answer-form').then(e => e.getElementsByTagName('fieldset')[0]);
+        const answerElement = pageType != 'lesson' ? await awaitElement('quiz-input__input-container', true) : '';
         let mainDiv;
-        const initializeIndicator = () => {
-            characterElement.appendChild(strToElement(diffDiv('gray', 'Inactive', true, '')));
+        const initializeIndicator = pageType != 'lesson' ? async () => {
+            characterElement.appendChild(strToElement(await diffDiv('gray', 'Inactive', true, '', false)));
+            mainDiv = document.getElementById(mainDivId);
+        } : async () => {
+            if (mainDiv) mainDiv.remove();
+            characterElement = await awaitElement('character-header', true);
+            document.body.appendChild(strToElement(await diffDiv('gray', 'Inactive', true, '', true)));
             mainDiv = document.getElementById(mainDivId);
         }
-        if (settings.INDICATOR_REVIEW_POS == 'main' || pageType == 'lesson') initializeIndicator();
 
         let prevPos = settings.INDICATOR_REVIEW_POS;
 
@@ -353,17 +356,19 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
                 }
                 if (settings.INDICATOR_REVIEW_POS == 'info') mainDiv = await awaitElement(mainDivId);
                 else if (!document.getElementById(mainDivId)) initializeIndicator();
-            }
+            } else await initializeIndicator();
 
             // get item info and new indicator
-            const itemType = characterElement.className.toLowerCase();
-            const itemName = characterElement.children[0].innerHTML;
-            const [innerDivHTML, hovertext] = settings.HIDE_UNTIL_ANSWER && !answerElement.className && settings.INDICATOR_REVIEW_POS == 'main' && pageType != 'lesson' ? innerDivByChar('', '') : innerDivByChar(itemType, itemName);
+            const itemType = characterElement.className.split('--')[1].toLowerCase();
+            const itemName = characterElement.getElementsByClassName('character-header__characters')[0].innerHTML;
+            const [innerDivHTML, hovertext] = pageType != 'lesson' && settings.HIDE_UNTIL_ANSWER && !answerElement.hasAttribute('correct') && settings.INDICATOR_REVIEW_POS == 'main' ? innerDivByChar('', '') : innerDivByChar(itemType, itemName);
 
             // renew attributes
-            mainDiv.innerHTML = innerDivHTML;
-            mainDiv.title = hovertext;
-            mainDiv.style.zoom = settings.INDICATOR_SIZE;
+            if (mainDiv) {
+                mainDiv.innerHTML = innerDivHTML;
+                mainDiv.title = hovertext;
+                mainDiv.style.zoom = settings.INDICATOR_SIZE;
+            }
         };
 
         // set diff box contents for first item
@@ -371,8 +376,8 @@ const awaitElement = (id) => new Promise(resolve => { // "await existence of ele
 
         // setup observer to change info box contents for subsequent items
         const observer = new MutationObserver(() => updateDiffInfo());
-        const config = { characterData: true, childList: true, subtree: true, ...(pageType != 'lesson' ? {attributeFilter: ['class']} : {}) };
-        observer.observe(pageType != 'lesson' ? answerElement : characterElement.children[0], config);
+        const config = { ...(pageType != 'lesson' ? { childList: true, characterData: true, subtree: true, attributeFilter: ['class', 'correct'] } : { attributes: true }) };
+        observer.observe(pageType != 'lesson' ? answerElement : document.children[0], config);
     }
 
 })();
