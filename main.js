@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.21
+// @version      0.22
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match        https://www.wanikani.com/radicals*
@@ -81,9 +81,9 @@ const innerDivByChar = (type, char) => { // get inner indicator div through char
     const [diff, color] = charToColorDiff(type, char);
     return [innerDiffDiv(color, diffIndicatorValue(diff)), (diff != -1 ? diffToStr(diff) : 'n/a')];
 }
-const divByChar = (type, char, absolute) => { // get indicator div through char
+const divByChar = async (type, char, absolute) => { // get indicator div through char
     const [diff, color] = charToColorDiff(type, char);
-    return diffDiv(color, diff != -1 ? diffToStr(diff) : 'n/a', absolute, diffIndicatorValue(diff));
+    return await diffDiv(color, diff != -1 ? diffToStr(diff) : 'n/a', absolute, diffIndicatorValue(diff));
 }
 const strToElement = str => { // turn HTML string into element
     var temp = document.createElement('div');
@@ -294,9 +294,9 @@ const awaitElement = (id, isClass = false) => new Promise(resolve => { // "await
         await wkof.ready('Menu,Settings').then(settingsHandler);
     }
 
-    const charToElement = ({type, characters}) => strToElement(divByChar(type, characters, false));
-    const appendToInfo = () => wkItemInfo.under('composition').append(itemInfoTitle, charToElement);
-    const appendToInfoPage = () => wkItemInfo.appendAtTop(itemInfoTitle, charToElement);
+    const charToElement = async ({type, characters}) => strToElement(await divByChar(type, characters, false));
+    const appendToInfo = async () => wkItemInfo.under('composition').append(itemInfoTitle, await charToElement);
+    const appendToInfoPage = async () => wkItemInfo.appendAtTop(itemInfoTitle, await charToElement);
 
     // initialize difficulty indicator
     if (pageType == 'info') { // kanji/vocab/radical info page
@@ -304,7 +304,7 @@ const awaitElement = (id, isClass = false) => new Promise(resolve => { // "await
     } else { // extra study, lesson, or review page
 
         var itemInfoSection;
-        if (settings.INDICATOR_REVIEW_POS == 'info' && pageType != 'lesson') itemInfoSection = appendToInfo();
+        if (settings.INDICATOR_REVIEW_POS == 'info' && pageType != 'lesson') itemInfoSection = await appendToInfo();
 
         // change level up div width so that hover text is visible
         if (OFFSET_SRS_POPUP && settings.INDICATOR_REVIEW_POS == 'main' && pageType == 'review') {
@@ -315,10 +315,10 @@ const awaitElement = (id, isClass = false) => new Promise(resolve => { // "await
 
         // initialize elements
         let characterElement = await awaitElement('character-header', true);
-        if (pageType == 'lesson' && isFirefox) characterElement.style.position = 'relative'; // firefox places element in bottom right of screen instead of in div
         const answerElement = pageType != 'lesson' ? await awaitElement('quiz-input__input-container', true) : '';
         let mainDiv;
         const initializeIndicator = pageType != 'lesson' ? async () => {
+            if (mainDiv) mainDiv.remove();
             characterElement.appendChild(strToElement(await diffDiv('gray', 'Inactive', true, '', false)));
             mainDiv = document.getElementById(mainDivId);
         } : async () => {
@@ -327,6 +327,7 @@ const awaitElement = (id, isClass = false) => new Promise(resolve => { // "await
             document.body.appendChild(strToElement(await diffDiv('gray', 'Inactive', true, '', true)));
             mainDiv = document.getElementById(mainDivId);
         }
+        if (isFirefox && pageType != 'lesson') initializeIndicator();
 
         let prevPos = settings.INDICATOR_REVIEW_POS;
 
