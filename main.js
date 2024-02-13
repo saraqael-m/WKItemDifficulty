@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         WaniKani Item Difficulty
 // @namespace    wk-item-diff
-// @version      0.22
+// @version      0.23
 // @description  Add difficulty ratings collected from forum datasets to items in WaniKani lessons and reviews.
 // @author       saraqael
 // @match        https://www.wanikani.com/radicals*
 // @match        https://www.wanikani.com/kanji*
 // @match        https://www.wanikani.com/vocabulary*
 // @match        https://www.wanikani.com/subjects*
+// @match        https://www.wanikani.com/subject-lessons*
 // @grant        none
 // @license      MIT
 // @require      https://greasyfork.org/scripts/430565-wanikani-item-info-injector/code/WaniKani%20Item%20Info%20Injector.user.js?version=1166918
@@ -59,7 +60,7 @@ const wkItemInfo = window.wkItemInfo; // WaniKani Item Info Injector
 const wkof = window.wkof; // WaniKani Open Framework
 
 // find out if page is lesson, review, or word info
-const pageType = window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : (window.location.pathname.includes('subjects') ? 'lesson' : 'info'));
+const pageType = window.location.pathname.includes('review') ? 'review' : (window.location.pathname.includes('extra_study') ? 'extra_study' : (window.location.pathname.includes('subject') ? 'lesson' : 'info'));
 // if word info which type of item
 const infoType = pageType != 'info' ? undefined : (window.location.pathname.includes('radical') ? 'rad' : (window.location.pathname.includes('kanji') ? 'kan' : 'voc'));
 // is Firefox browser
